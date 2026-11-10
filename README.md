@@ -75,7 +75,7 @@ Git (opcional, para clonar el repositorio).
 Clonar el repositorio:
 
 bash
-git clone URL_DE_TU_REPOSITORIO
+git clone https://github.com/ArandaMogui/calculadora-docker.git
 
 
 Entrar en la carpeta:
