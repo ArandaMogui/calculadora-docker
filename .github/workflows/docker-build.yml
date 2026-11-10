@@ -52,13 +52,25 @@ jobs:
       - name: Iniciar contenedores
         run: docker compose up -d
 
-      # 9. Probar comunicacion entre servicios
+            # 9. Esperar y probar la aplicacion
       - name: Probar calculadora y PostgreSQL
         run: |
-          curl -fsS --retry 10 --retry-delay 3 \
-            http://localhost:5000/
+          echo "Esperando que Flask este disponible..."
+
+          for i in {1..30}; do
+            if curl -fsS http://localhost:5000/; then
+              echo "Aplicacion Flask disponible"
+              break
+            fi
+
+            echo "Intento $i: esperando Flask..."
+            sleep 2
+          done
 
           RESPONSE=$(curl -fsS \
+            --retry 5 \
+            --retry-all-errors \
+            --retry-delay 2 \
             -X POST http://localhost:5000/calculate \
             -H "Content-Type: application/json" \
             -d '{"numero1":20,"numero2":30,"operacion":"suma"}')
@@ -67,6 +79,18 @@ jobs:
 
           echo "$RESPONSE" | grep -q '"resultado":50'
           echo "$RESPONSE" | grep -q '"guardado_en":"db"'
+
+           - name: Diagnosticar errores de contenedores
+        if: failure()
+        run: |
+          echo "=== ESTADO DE CONTENEDORES ==="
+          docker compose ps -a
+
+          echo "=== LOGS DE LA APLICACION ==="
+          docker compose logs calculator-app
+
+          echo "=== LOGS DE POSTGRESQL ==="
+          docker compose logs db
 
       # 10. Verificar el registro en PostgreSQL
       - name: Verificar datos en PostgreSQL
