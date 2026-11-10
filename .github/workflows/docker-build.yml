@@ -52,21 +52,29 @@ jobs:
       - name: Iniciar contenedores
         run: docker compose up -d
 
-            # 9. Esperar y probar la aplicacion
-      - name: Probar calculadora y PostgreSQL
+      # 9. Esperar a que Flask acepte conexiones.
+      #    "docker compose up -d" regresa en cuanto el contenedor arranca,
+      #    pero Flask tarda unos segundos en escuchar en el puerto 5000.
+      #    curl --retry por si solo NO reintenta cuando la conexion es
+      #    rechazada, por eso se usa un ciclo explicito.
+      - name: Esperar a la aplicacion Flask
         run: |
-          echo "Esperando que Flask este disponible..."
-
-          for i in {1..30}; do
-            if curl -fsS http://localhost:5000/; then
-              echo "Aplicacion Flask disponible"
-              break
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:5000/ > /dev/null; then
+              echo "Aplicacion Flask disponible (intento $i)"
+              exit 0
             fi
 
-            echo "Intento $i: esperando Flask..."
+            echo "Intento $i/30: Flask aun no responde, esperando..."
             sleep 2
           done
 
+          echo "::error::Flask no respondio en localhost:5000 despues de 60 segundos"
+          exit 1
+
+      # 10. Probar la calculadora y su conexion con PostgreSQL
+      - name: Probar calculadora y PostgreSQL
+        run: |
           RESPONSE=$(curl -fsS \
             --retry 5 \
             --retry-all-errors \
@@ -75,12 +83,24 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"numero1":20,"numero2":30,"operacion":"suma"}')
 
-          echo "$RESPONSE"
+          echo "Respuesta: $RESPONSE"
 
           echo "$RESPONSE" | grep -q '"resultado":50'
           echo "$RESPONSE" | grep -q '"guardado_en":"db"'
 
-           - name: Diagnosticar errores de contenedores
+      # 11. Verificar el registro en PostgreSQL
+      - name: Verificar datos en PostgreSQL
+        run: |
+          docker compose exec -T db \
+            psql -U admin -d calculadora \
+            -c "SELECT * FROM operaciones;"
+
+      # 12. Mostrar los contenedores
+      - name: Verificar servicios
+        run: docker compose ps
+
+      # 13. Mostrar estado y logs si algo fallo
+      - name: Diagnosticar errores de contenedores
         if: failure()
         run: |
           echo "=== ESTADO DE CONTENEDORES ==="
@@ -92,18 +112,7 @@ jobs:
           echo "=== LOGS DE POSTGRESQL ==="
           docker compose logs db
 
-      # 10. Verificar el registro en PostgreSQL
-      - name: Verificar datos en PostgreSQL
-        run: |
-          docker compose exec -T db \
-            psql -U admin -d calculadora \
-            -c "SELECT * FROM operaciones;"
-
-      # 11. Mostrar los contenedores
-      - name: Verificar servicios
-        run: docker compose ps
-
-      # 12. Limpiar los contenedores
+      # 14. Limpiar los contenedores
       - name: Limpiar entorno
         if: always()
         run: docker compose down
