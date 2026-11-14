@@ -1,274 +1,225 @@
-Calculadora Python con Docker
+# Calculadora Python con Docker y Orquestación CI/CD con Jenkins
 
-1. Descripción del proyecto
+> **Institución Universitaria Politécnico Grancolombiano**  
+> **Facultad de Ingeniería, Diseño e Innovación**  
+> **Módulo:** Énfasis Profesional I (Integración Continua) - Grupo 2  
+> **Docente:** Ing. John Alirio Olarte Ramos  
 
-Este proyecto consiste en el desarrollo de una calculadora utilizando Python y Flask, desplegada mediante contenedores Docker.
+### 👥 Equipo de Trabajo (Autores)
+* **Alex Camilo Hernández Piragauta**
+* **Juan Osorio Zapata**
+* **Cristian Mauricio Ricardo Rojas**
+* **Valentina Yepes Arteaga**
+* **Maira Alexandra Morales Guio**
 
-La aplicación permite realizar operaciones matemáticas básicas y almacenar los resultados en una base de datos PostgreSQL.
+---
 
-El proyecto utiliza Docker Compose para administrar los servicios y establecer la comunicación entre los contenedores mediante una red propia de Docker.
+## 📌 1. Descripción del Proyecto
 
-2. Tecnologías utilizadas
+Este proyecto consiste en el desarrollo, contenerización y automatización de ciclo de vida de una **Calculadora Distribuida** desarrollada en **Python** con el microframework **Flask**, desacoplada en una arquitectura de microservicios e integrada con un motor de base de datos relacional **PostgreSQL 16.6**.
 
-Python 3.12.7
-Flask 3.1.1
-Psycopg 3.2.9
-PostgreSQL 16.6
-Docker
-Docker Compose
-Git y GitHub
-Visual Studio Code
-3. Arquitectura del proyecto
+La aplicación permite resolver operaciones aritméticas (`suma`, `resta`, `multiplicacion` y `division`), aplicar validaciones matemáticas robustas (control de división entre cero) y garantizar la persistencia transaccional del historial en base de datos.
 
-El proyecto está compuesto por dos servicios:
+La infraestructura se encuentra completamente declarada como código mediante **Docker** y **Docker Compose**, y orquestada a través de un pipeline de Integración Continua en **Jenkins** y **GitHub Actions**.
 
-Servicio 1: calculator-app
+---
 
-Aplicación desarrollada en Python.
-Framework Flask.
-Puerto: 5000.
-Permite realizar operaciones matemáticas.
-Guarda y consulta los resultados en PostgreSQL.
+## 📊 2. Matriz de Progreso de Entregas Académicas
 
-Servicio 2: db
+| Hito / Entrega | Semana | Estado | Tecnologías y Alcance Logrado |
+|---|---|:---:|---|
+| **Entrega 1: Docker con Dos Contenedores Comunicados** | Semana 3 | ✅ **COMPLETADA**<br>*(10/Nov/2026)* | • Repositorio GitHub estructurado.<br>• Contenedor 1 (`calculator-app`): Python 3.12.7 + Flask.<br>• Contenedor 2 (`calculator-db`): PostgreSQL 16.6.<br>• Red personalizada bridge `calculator-network`.<br>• Comunicación obligatoria por nombre de host (`DB_HOST=db`).<br>• Transacción real de ida y vuelta (`POST /calculate`).<br>• Volumen nominal persistente `postgres-data`.<br>• Seguridad: `.env`, `.env.example`, `.dockerignore`.<br>• Pipeline inicial en GitHub Actions (`docker-build.yml`).<br>• Informe formal en Normas APA 7 con capturas de evidencia. |
+| **Entrega 2: Implementación de Jenkins como Gestor de Operaciones** | Semana 5 | 🚀 **EN CURSO / LISTA PARA REVISIÓN** | • Incorporación de **Jenkins** como servidor de CI centralizado.<br>• Pipeline Declarativo como Código (`Jenkinsfile`) con 6 etapas.<br>• Suite de pruebas unitarias automatizadas (`tests/` con `pytest`).<br>• Linter y análisis estático de código (`flake8`).<br>• Construcción automatizada de imágenes con tags dinámicos.<br>• Prueba de integración multi-contenedor efímera (App + DB).<br>• Despliegue de servidor Jenkins local con `docker-compose.jenkins.yml`.<br>• Documento técnico de especificaciones de Jenkins en Normas APA. |
+| **Entrega 3 y Sustentación: Integración Continua Integral** | Semanas 7 y 8 | ⚪ **PLANIFICADA** | • Integración completa con pipelines en la nube (Travis CI / Cloud).<br>• Monitoreo, trazabilidad de fallos e historial de incidentes.<br>• Documento final consolidado y defensa técnica (Sustentación oral). |
 
-Base de datos PostgreSQL 16.6.
-Puerto interno: 5432.
-Almacena el historial de operaciones.
-Utiliza un volumen persistente llamado postgres-data.
+---
 
-Ambos servicios se comunican mediante la red Docker calculator-network.
+## 🏗️ 3. Arquitectura del Sistema
 
-La aplicación utiliza el nombre del servicio db como dirección del servidor de base de datos, en lugar de utilizar localhost o una dirección IP fija.
+```
++-----------------------------------------------------------------------------------------+
+|                                    DOCKER HOST                                          |
+|                                                                                         |
+|   +─────────────────────────────────────────────────────────────────────────────────+   |
+|   │                  Red Bridge Personalizada: calculator-network                   │   |
+|   │                                                                                 │   |
+|   │   +────────────────────────────+          +────────────────────────────+        │   |
+|   │   │  Servicio 1:               │          │  Servicio 2:               │        │   |
+|   │   │  calculator-app            │          │  calculator-db (db)        │        │   |
+|   │   │  - Python 3.12.7-slim      │   TCP    │  - PostgreSQL 16.6         │        │   |
+|   │   │  - Flask 3.1.1             │ ───────> │  - Puerto interno 5432     │        │   |
+|   │   │  - Puerto interno 5000     │  5432    │  - Healthcheck pg_isready  │        │   |
+|   │   │  - DB_HOST=db              │          │                            │        │   |
+|   │   +─────────────┬──────────────+          +─────────────┬──────────────+        │   |
+|   +─────────────────┼───────────────────────────────────────┼───────────────────────+   |
+|                     │ Mapeo puerto                          │ Volumen persistente       |
+|                     ▼                                       ▼                           |
+|              localhost:5000                         postgres-data                       |
+|        (POST /calculate con JSON)             (/var/lib/postgresql/data)                |
++-----------------------------------------------------------------------------------------+
+```
 
-4. Estructura del proyecto
-text
+---
+
+## 🔄 4. Pipeline de Integración Continua con Jenkins
+
+El archivo [`Jenkinsfile`](./Jenkinsfile) gobierna el ciclo de vida del código ante cada cambio o Pull Request:
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ 1. Checkout SCM │ ──> │ 2. Linter       │ ──> │ 3. Unit Tests   │ ──> │ 4. Docker Build │ ──> │ 5. Test Integr. │
+│ (Git pull)      │     │ (Flake8)        │     │ (Pytest + JUnit)│     │ (Compose build) │     │ (Flask ➔ Postgres│
+└─────────────────┘     └─────────────────┘     └─────────────────┘     └─────────────────┘     └─────────────────┘
+                                                                                                         │
+                                                                                                         ▼
+                                                                                                ┌─────────────────┐
+                                                                                                │ 6. Cleanup Post │
+                                                                                                │ (docker down -v)│
+                                                                                                └─────────────────┘
+```
+
+1. **Checkout:** Descarga el código y muestra metadatos del commit (`hash`, autor, mensaje).
+2. **Linter:** Audita la calidad de sintaxis con `flake8` deteniendo el pipeline de inmediato si hay errores (*Fail-Fast*).
+3. **Unit Tests:** Ejecuta pruebas unitarias aisladas sin dependencias externas y exporta resultados a formato JUnit XML (`reports/unit-tests-report.xml`).
+4. **Docker Build:** Compila la imagen `calculator-app` a partir del `Dockerfile` oficial.
+5. **Pruebas de Integración:** Levanta el ambiente multi-contenedor con `docker compose`, espera a que PostgreSQL y Flask estén listos, efectúa una transacción matemática de prueba vía HTTP y valida la persistencia directa en la base de datos.
+6. **Limpieza:** Destruye los contenedores de prueba y libera memoria de forma automática.
+
+---
+
+## 📁 5. Estructura del Repositorio
+
+```text
 calculadora-docker/
 │
-├── app/
-│   ├── app.py
-│   └── requirements.txt
+├── 📁 .github/workflows/          # Flujo CI para GitHub Actions (docker-build.yml)
+├── 📁 app/                        # Código fuente del microservicio
+│   ├── app.py                     # API REST Flask con endpoints y conexión DB
+│   └── requirements.txt           # Dependencias de producción (Flask, psycopg)
 │
-├── evidencias/
+├── 📁 tests/                      # Suite de pruebas automatizadas para CI
+│   ├── __init__.py
+│   └── test_calculadora.py        # Pruebas unitarias de cálculo y endpoints
 │
-├── .dockerignore
-├── .env
-├── .env.example
-├── .gitignore
-├── docker-compose.yml
-├── Dockerfile
-└── README.md
+├── 📁 evidencias/                 # Capturas oficiales de verificación y pruebas
+│
+├── .dockerignore                  # Exclusión de archivos innecesarios en la imagen
+├── .env.example                   # Plantilla de variables de entorno seguras
+├── .gitignore                     # Exclusión de credenciales (.env) y venv
+├── docker-compose.yml             # Orquestación de la aplicación y PostgreSQL
+├── docker-compose.jenkins.yml     # Orquestación del servidor local Jenkins CI
+├── Dockerfile                     # Manifiesto de construcción de la imagen Python
+├── Jenkinsfile                    # Pipeline declarativo CI/CD para Jenkins
+├── requirements-dev.txt           # Dependencias de testing (pytest, flake8)
+└── README.md                      # Documentación integral del proyecto
+```
 
+---
 
-Nota: el archivo .env contiene credenciales privadas y no debe subirse a GitHub.
+## 🚀 6. Guía Rápida de Despliegue Local (Docker Compose)
 
-5. Requisitos previos
+### Prerrequisitos
+* Git 2.28+
+* Docker Desktop 24+ con soporte para Docker Compose
 
-Para ejecutar el proyecto se necesita:
+### Paso 1: Configurar Variables de Entorno
+Crea tu archivo local `.env` a partir de la plantilla:
+```bash
+cp .env.example .env
+```
+*(En Windows PowerShell: `Copy-Item .env.example .env`)*
 
-Windows 11, Linux o macOS.
-Docker Desktop instalado.
-Docker Compose.
-Git (opcional, para clonar el repositorio).
-6. Configuración inicial
+### Paso 2: Crear el Volumen Persistente
+```bash
+docker volume create postgres-data
+```
 
-Clonar el repositorio:
+### Paso 3: Construir y Levantar los Servicios
+```bash
+docker compose up -d --build
+```
 
-bash
-git clone https://github.com/ArandaMogui/calculadora-docker.git
-
-
-Entrar en la carpeta:
-
-bash
-cd calculadora-docker
-
-
-Crear el archivo .env a partir del ejemplo:
-
-En PowerShell:
-
-powershell
-Copy-Item .env.example .env
-
-
-Editar el archivo .env y configurar las credenciales:
-
-dotenv
-POSTGRES_DB=calculadora
-POSTGRES_USER=admin
-POSTGRES_PASSWORD=CAMBIAR_POR_UNA_PASSWORD_SEGURA
-DB_HOST=db
-
-
-No compartir ni subir el archivo .env.
-
-7. Construcción de las imágenes Docker
-
-Para construir la imagen de la aplicación:
-
-bash
-docker compose build
-
-
-Este comando utiliza el Dockerfile para construir la imagen de Python e instalar las dependencias.
-
-8. Levantar los contenedores
-
-Para iniciar los dos servicios:
-
-bash
-docker compose up -d
-
-
-Este comando realiza las siguientes acciones:
-
-Construye la aplicación si es necesario.
-Crea la red de Docker.
-Inicia PostgreSQL.
-Espera a que PostgreSQL esté saludable.
-Inicia la aplicación Flask.
-9. Verificar los contenedores
-
-Consultar los servicios:
-
-bash
+### Paso 4: Validar el Estado de los Contenedores
+```bash
 docker compose ps
+```
+Ambos servicios (`calculator-app` y `calculator-db`) deben figurar en estado `Up` / `healthy`.
 
+---
 
-Consultar los contenedores activos:
+## 🧪 7. Ejecución de Pruebas Unitarias Locales
 
-bash
-docker ps
+Para ejecutar las mismas pruebas que realiza Jenkins en su etapa de CI:
 
+```bash
+# Crear entorno virtual
+python -m venv .venv
+# Activar entorno (PowerShell: .venv\Scripts\Activate.ps1 / Linux: source .venv/bin/activate)
 
-Consultar los registros:
+# Instalar dependencias de desarrollo y test
+pip install -r requirements-dev.txt
 
-bash
-docker compose logs
+# Ejecutar linter
+flake8 app/ tests/
 
+# Ejecutar pruebas unitarias
+pytest tests/ -v
+```
 
-Consultar únicamente los registros de la aplicación:
+---
 
-bash
-docker compose logs calculator-app
+## 🌐 8. Catálogo de Endpoints de la API
 
+La aplicación responde en el puerto `5000` (`http://localhost:5000`):
 
-Consultar los registros de PostgreSQL:
+| Método | Endpoint | Descripción | Formato Body |
+|---|---|---|---|
+| `GET` | `/` | Comprobación de salud y nombre del host DB conectado. | N/A |
+| `POST` | `/calculate` | Realiza operación aritmética y la guarda en PostgreSQL. | JSON: `{"numero1": 20, "numero2": 30, "operacion": "suma"}` |
+| `GET` | `/history` | Retorna el historial de operaciones almacenadas. | N/A |
 
-bash
-docker compose logs db
+### Ejemplo de Prueba con `curl`:
+```bash
+curl -X POST http://localhost:5000/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"numero1": 40, "numero2": 10, "operacion": "resta"}'
+```
 
-10. Acceder a la calculadora
+### Respuesta esperada (HTTP 201 Created):
+```json
+{
+  "guardado_en": "db",
+  "id": 1,
+  "mensaje": "Operacion guardada correctamente",
+  "numero1": 40.0,
+  "numero2": 10.0,
+  "operacion": "resta",
+  "resultado": 30.0
+}
+```
 
-Abrir en el navegador:
+---
 
-http://localhost:5000/
+## 🛠️ 9. Despliegue de Jenkins Local
 
-La aplicación dispone de los siguientes endpoints:
+Para levantar el servidor de Jenkins y probar el pipeline:
 
-Método	Endpoint	Función
-GET	/	Información de la aplicación
-POST	/calculate	Realizar y guardar operaciones
-GET	/history	Consultar el historial
-11. Prueba de operaciones matemáticas
+```bash
+# 1. Iniciar contenedor de Jenkins con acceso a Docker
+docker compose -f docker-compose.jenkins.yml up -d
 
-Ejemplo de una suma utilizando PowerShell:
+# 2. Obtener la contraseña inicial de administrador
+docker exec -it jenkins-ci cat /var/jenkins_home/secrets/initialAdminPassword
 
-powershell
-Invoke-RestMethod `
--Uri http://localhost:5000/calculate `
--Method POST `
--ContentType "application/json" `
--Body '{"numero1":20,"numero2":30,"operacion":"suma"}'
+# 3. Acceder en el navegador
+# URL: http://localhost:8080
+```
 
+---
 
-Resultado esperado:
+## 🔒 10. Seguridad y Buenas Prácticas Implementadas
 
-text
-numero1     : 20
-numero2     : 30
-operacion   : suma
-resultado   : 50
-guardado_en : db
-
-12. Consultar el historial
-
-Para consultar las operaciones almacenadas:
-
-powershell
-Invoke-RestMethod -Uri http://localhost:5000/history
-
-13. Verificar los datos directamente en PostgreSQL
-
-Ejecutar:
-
-bash
-docker compose exec db psql -U admin -d calculadora
-
-
-Consultar las operaciones:
-
-sql
-SELECT * FROM operaciones;
-
-
-Salir de PostgreSQL:
-
-sql
-\q
-
-14. Verificar la red Docker
-
-Listar las redes:
-
-bash
-docker network ls
-
-
-Inspeccionar la red:
-
-bash
-docker network inspect calculadora-docker_calculator-network
-
-
-La red conecta los servicios calculator-app y db.
-
-15. Detener los contenedores
-
-Para detener los servicios:
-
-bash
-docker compose stop
-
-
-Para detener y eliminar los contenedores y la red:
-
-bash
-docker compose down
-
-
-Los datos de PostgreSQL permanecen en el volumen persistente.
-
-Para eliminar también el volumen y sus datos:
-
-bash
-docker compose down -v
-
-
-Advertencia: el último comando elimina permanentemente los datos almacenados en el volumen de PostgreSQL.
-
-16. Seguridad y buenas prácticas
-Se utiliza una imagen oficial de Python con versión fija.
-Se utiliza PostgreSQL con versión fija.
-Las credenciales se configuran mediante variables de entorno.
-El archivo .env está excluido del repositorio.
-Se proporciona un archivo .env.example.
-Se utiliza .dockerignore para excluir archivos innecesarios.
-Los datos se conservan mediante un volumen Docker.
-La aplicación se comunica con PostgreSQL mediante el nombre de servicio db.
-17. Autor
-
-Proyecto académico: Calculadora Python con Docker.
-
-Desarrollado utilizando Python, Flask, PostgreSQL, Docker y Docker Compose.
+* **Principio de Versión Inmutable:** Imágenes base con tags fijados explícitamente (`python:3.12.7-slim` y `postgres:16.6`), prohibiendo el uso del antipatrón `:latest`.
+* **Zero Hardcoded Secrets:** Ninguna credencial quemada en el código. Uso estricto de `.env` para secretos locales y *Jenkins Credentials* para CI.
+* **Aislamiento de Red:** Red Docker bridge dedicada que impide la exposición innecesaria de la base de datos hacia redes públicas.
+* **Healthchecks Automáticos:** Sincronización precisa entre servicios mediante `depends_on: condition: service_healthy` antes del arranque del cliente web.

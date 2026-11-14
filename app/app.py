@@ -59,6 +59,24 @@ def inicio():
     })
 
 
+# Logica pura de calculo desacoplada para pruebas unitarias
+def procesar_calculo(numero1, numero2, operacion):
+    op = str(operacion).lower().strip()
+
+    if op == "suma":
+        return numero1 + numero2
+    elif op == "resta":
+        return numero1 - numero2
+    elif op == "multiplicacion":
+        return numero1 * numero2
+    elif op == "division":
+        if numero2 == 0:
+            raise ZeroDivisionError("No se puede dividir entre cero")
+        return numero1 / numero2
+    else:
+        raise ValueError("Operacion no valida")
+
+
 # Realizar y guardar operaciones
 @app.route("/calculate", methods=["POST"])
 def calcular():
@@ -69,24 +87,13 @@ def calcular():
         numero2 = float(datos["numero2"])
         operacion = datos["operacion"].lower()
 
-        if operacion == "suma":
-            resultado = numero1 + numero2
-
-        elif operacion == "resta":
-            resultado = numero1 - numero2
-
-        elif operacion == "multiplicacion":
-            resultado = numero1 * numero2
-
-        elif operacion == "division":
-            if numero2 == 0:
-                return jsonify({
-                    "error": "No se puede dividir entre cero"
-                }), 400
-
-            resultado = numero1 / numero2
-
-        else:
+        try:
+            resultado = procesar_calculo(numero1, numero2, operacion)
+        except ZeroDivisionError:
+            return jsonify({
+                "error": "No se puede dividir entre cero"
+            }), 400
+        except ValueError:
             return jsonify({
                 "error": "Operacion no valida"
             }), 400
