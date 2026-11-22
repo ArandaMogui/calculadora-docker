@@ -74,8 +74,10 @@ pipeline {
                     echo "DB_HOST=${DB_HOST}" >> .env
                     echo "PORT=5000" >> .env
 
-                    # Construccion de los contenedores mediante Docker Compose
+                    # Construccion y verificacion de los dos contenedores (calculator-app y db)
                     docker compose build --no-cache
+                    docker compose pull db
+                    docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "calculadora|postgres" || true
                 '''
             }
         }
